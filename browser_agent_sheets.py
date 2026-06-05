@@ -6,9 +6,9 @@ import gspread
 from dotenv import load_dotenv
 from google.oauth2.service_account import Credentials
 
-# Các thư viện trong Stack của bạn
+# Gọi trực tiếp thư viện gốc của Stack hiện tại
 from browser_use import Agent
-from langchain_community.chat_models import ChatLiteLLM
+import litellm
 
 load_dotenv()
 
@@ -16,34 +16,36 @@ load_dotenv()
 # 1. CẤU HÌNH GOOGLE SHEETS
 # =====================================================================
 print("1. Đang kết nối tới hệ thống Google Sheets...")
-# Scopes bắt buộc phải giữ nguyên đường dẫn hệ thống này:
 scopes = ["https://www.googleapis.com/auth/spreadsheets"]
 creds = Credentials.from_service_account_file("google_creds.json", scopes=scopes)
 client = gspread.authorize(creds)
 
-# CHÚ Ý: Điền chính xác ID chuỗi dài của Google Sheet vào đây:
+# Chuỗi ID bảng tính của bạn đã được cấu hình chuẩn xác
 SPREADSHEET_ID = "1r_5sg4wKYGJw3ESFOE7vRRfkYGV2wJdGnA2ONQUOAyk" 
 sheet = client.open_by_key(SPREADSHEET_ID).sheet1
 
 
 # =====================================================================
-# 2. KHỞI TẠO NÃO BỘ AI QUA LITELLM
+# 2. KHỞI TẠO NÃO BỘ AI QUA LITELLM GỐC
 # =====================================================================
-llm = ChatLiteLLM(model="groq/llama-3.3-70b-versatile", temperature=0.3)
+# Thay vì dùng LangChain, ta khởi tạo trực tiếp qua cấu hình chuẩn của LiteLLM
+llm = litellm.utils.g_to_langchain_spec(
+    model="groq/llama-3.3-70b-versatile", 
+    temperature=0.3
+)
 
 
 # =====================================================================
 # 3. KỊCH BẢN ĐIỀU KHIỂN AGENT SĂN TIN TỨC FEMALE K-POP
 # =====================================================================
 async def main():
-    # Sử dụng 3 dấu nháy kép để an toàn tuyệt đối với chuỗi nhiều dòng, không lo lỗi cú pháp
     task_prompt = """
     1. Open 'https://www.soompi.com/category/music' and scan the latest K-pop news articles.
     2. Focus primarily on articles related to female K-pop groups, female idols, or general industry trends that impact female artists.
-    3. Cover all relevant categories such as: Comeback/Debut announcements, Music Video views/records, Digital Chart achievements (Billboard, Circle, Melon), Brand endorsements, Concept/Creative direction updates, or Agency strategies.
+    3. Cover all relevant categories such as: Comebacks, Music Records, Brand Strategy, or Creative Concepts.
     4. Extract the top 5 most critical or trending news items. For each item, capture:
        - The Article Title.
-       - The Specific Category (e.g., Comebacks, Music Records, Brand Strategy, Creative Concept).
+       - The Specific Category.
        - A concise summary identifying the key female artists involved (e.g., NewJeans, BLACKPINK, BabyMonster, aespa, IVE, etc.) and what happened.
        - The direct URL link.
     5. Output the final result strictly as a raw JSON list of lists (WITHOUT using markdown code blocks like ```json), following this format:
@@ -53,7 +55,7 @@ async def main():
     print("2. Đang kích hoạt Browser-use đi săn lùng tin tức Female K-pop toàn diện...")
     agent = Agent(task=task_prompt, llm=llm)
     
-    # Ép trình duyệt chạy ngầm và thu thập kết quả
+    # Kích hoạt robot quét dữ liệu ngầm
     history = await agent.run()
     raw_result = history.final_result()
     print(f"-> Dữ liệu thô AI trích xuất được: {raw_result}")
@@ -75,7 +77,7 @@ async def main():
         
     except Exception as e:
         print(f"⚠️ Lỗi định dạng dữ liệu: {e}")
-        # Phương án dự phòng: Ghi dữ liệu thô ra bảng tính nếu AI không trả về JSON chuẩn
+        # Phương án dự phòng: Lưu chuỗi thô để tránh mất dữ liệu nếu AI phản hồi lệch chuẩn JSON
         sheet.append_row([datetime.now().strftime("%d/%m/%Y %H:%M"), "Lỗi định dạng - Dữ liệu thô từ AI:", raw_result, "", ""])
 
 if __name__ == "__main__":
