@@ -6,9 +6,9 @@ import gspread
 from dotenv import load_dotenv
 from google.oauth2.service_account import Credentials
 
-# Gọi trực tiếp thư viện gốc của Stack hiện tại
+# Sử dụng kết nối trực tiếp và chuẩn xác nhất cho Groq và Browser-use
 from browser_use import Agent
-import litellm
+from langchain_groq import ChatGroq
 
 load_dotenv()
 
@@ -20,19 +20,16 @@ scopes = ["https://www.googleapis.com/auth/spreadsheets"]
 creds = Credentials.from_service_account_file("google_creds.json", scopes=scopes)
 client = gspread.authorize(creds)
 
-# Chuỗi ID bảng tính của bạn đã được cấu hình chuẩn xác
+# ID bảng tính của bạn đã được cấu hình cố định chuẩn xác
 SPREADSHEET_ID = "1r_5sg4wKYGJw3ESFOE7vRRfkYGV2wJdGnA2ONQUOAyk" 
 sheet = client.open_by_key(SPREADSHEET_ID).sheet1
 
 
 # =====================================================================
-# 2. KHỞI TẠO NÃO BỘ AI QUA LITELLM GỐC
+# 2. KHỞI TẠO NÃO BỘ LLAMA 3 CỦA GROQ
 # =====================================================================
-# Thay vì dùng LangChain, ta khởi tạo trực tiếp qua cấu hình chuẩn của LiteLLM
-llm = litellm.utils.g_to_langchain_spec(
-    model="groq/llama-3.3-70b-versatile", 
-    temperature=0.3
-)
+print("2. Đang nạp cấu hình API Groq cho Llama 3...")
+llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0.3)
 
 
 # =====================================================================
@@ -45,14 +42,14 @@ async def main():
     3. Cover all relevant categories such as: Comebacks, Music Records, Brand Strategy, or Creative Concepts.
     4. Extract the top 5 most critical or trending news items. For each item, capture:
        - The Article Title.
-       - The Specific Category.
+       - The Specific Category (e.g., Comeback, Music Record, Fashion/Branding, Agency Strategy, Concept).
        - A concise summary identifying the key female artists involved (e.g., NewJeans, BLACKPINK, BabyMonster, aespa, IVE, etc.) and what happened.
        - The direct URL link.
     5. Output the final result strictly as a raw JSON list of lists (WITHOUT using markdown code blocks like ```json), following this format:
     [["Title 1", "Category 1", "Summary 1", "URL 1"], ["Title 2", "Category 2", "Summary 2", "URL 2"]]
     """
     
-    print("2. Đang kích hoạt Browser-use đi săn lùng tin tức Female K-pop toàn diện...")
+    print("3. Đang kích hoạt Browser-use đi săn lùng tin tức Female K-pop toàn diện...")
     agent = Agent(task=task_prompt, llm=llm)
     
     # Kích hoạt robot quét dữ liệu ngầm
@@ -63,7 +60,7 @@ async def main():
     # =====================================================================
     # 4. ĐẨY DATA VÀO GOOGLE SHEETS
     # =====================================================================
-    print("3. Đang xử lý cấu trúc dữ liệu và ghi vào Google Sheets...")
+    print("4. Đang xử lý cấu trúc dữ liệu và ghi vào Google Sheets...")
     try:
         articles = json.loads(raw_result)
         current_date = datetime.now().strftime("%d/%m/%Y %H:%M")
@@ -77,7 +74,6 @@ async def main():
         
     except Exception as e:
         print(f"⚠️ Lỗi định dạng dữ liệu: {e}")
-        # Phương án dự phòng: Lưu chuỗi thô để tránh mất dữ liệu nếu AI phản hồi lệch chuẩn JSON
         sheet.append_row([datetime.now().strftime("%d/%m/%Y %H:%M"), "Lỗi định dạng - Dữ liệu thô từ AI:", raw_result, "", ""])
 
 if __name__ == "__main__":
