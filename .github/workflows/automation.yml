@@ -2,8 +2,8 @@ name: AI Agent Automation Cron Job
 
 on:
   schedule:
-    - cron: '0 */12 * * *'   # Chạy mỗi 12 tiếng: 00:00 và 12:00 UTC
-  workflow_dispatch:           # Cho phép bấm nút chạy thủ công trên GitHub web
+    - cron: '0 */12 * * *'
+  workflow_dispatch:
 
 jobs:
   run-agent:
@@ -11,52 +11,40 @@ jobs:
 
     steps:
     - name: Checkout Code từ GitHub
-      uses: actions/checkout@v4   # FIX: dùng v4 thay v3 (v3 sắp deprecated)
+      uses: actions/checkout@v4
 
     - name: Cài đặt Python
-      uses: actions/setup-python@v5   # FIX: dùng v5 thay v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
 
-    - name: Cài đặt các thư viện cần thiết
+    - name: Cài đặt thư viện và Playwright browser
       run: |
         python -m pip install --upgrade pip
         pip install \
+          playwright \
           litellm \
           python-dotenv \
           gspread \
           google-auth \
           langchain-openai \
           browser-use
-
-    - name: Cài đặt Playwright browser (Chromium)
-      run: |
         python -m playwright install --with-deps chromium
-        # FIX: dùng "python -m playwright" thay vì "playwright" trực tiếp
-        # vì trên GitHub Actions, playwright CLI không có trong PATH
-        # nhưng Python module thì luôn tìm được
 
     - name: Tạo file Google credentials từ Secret
       env:
-        # FIX: dùng env var thay vì echo trực tiếp
-        # Cách cũ: echo '${{ secrets.GOOGLE_CREDS_JSON }}' > google_creds.json
-        # → bị lỗi nếu JSON chứa ký tự đặc biệt như dấu nháy đơn
         GOOGLE_CREDS_JSON: ${{ secrets.GOOGLE_CREDS_JSON }}
       run: |
         echo "$GOOGLE_CREDS_JSON" > google_creds.json
-        echo "✅ Đã tạo google_creds.json"
 
     - name: Chạy AI Agent
       env:
         GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
-        # Nếu bạn dùng Gemini thì thêm:
-        # GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       run: |
         python browser_agent_sheets.py
 
     - name: Dọn dẹp file nhạy cảm
-      if: always()   # Chạy kể cả khi bước trước bị lỗi
+      if: always()
       run: |
         rm -f google_creds.json
-        echo "✅ Đã xóa file credentials tạm"
