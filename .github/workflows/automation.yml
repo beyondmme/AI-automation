@@ -27,9 +27,7 @@ jobs:
           litellm \
           python-dotenv \
           gspread \
-          google-auth \
-          "langchain-openai==0.2.14" \
-          "langchain-core==0.3.28"
+          google-auth
         python -m playwright install --with-deps chromium
 
     - name: Tạo file Google credentials từ Secret
