@@ -31,9 +31,10 @@ jobs:
 
     - name: Cài đặt Playwright browser (Chromium)
       run: |
-        playwright install --with-deps chromium
-        # FIX: --with-deps cài thêm các system library cần thiết trên Ubuntu
-        # Thiếu flag này thường gây lỗi "browser executable not found"
+        python -m playwright install --with-deps chromium
+        # FIX: dùng "python -m playwright" thay vì "playwright" trực tiếp
+        # vì trên GitHub Actions, playwright CLI không có trong PATH
+        # nhưng Python module thì luôn tìm được
 
     - name: Tạo file Google credentials từ Secret
       env:
